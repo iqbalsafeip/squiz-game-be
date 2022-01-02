@@ -49,7 +49,7 @@ var ROOM = [
 io.on('connection', (socket)=> {
     
     socket.on('setUsername', value => {
-        socket['user'] = User(value);
+        // socket['user'] = User(value);
         socket['username'] = value
         socket.emit('username', value);
         

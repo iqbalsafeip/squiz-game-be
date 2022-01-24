@@ -1,5 +1,6 @@
 const umum = require('./umum');
 const sport = require('./sport');
+const food = require('./food');
 // const olahraga = require('./olahraga');
 // const movie = require('./movie');
 
@@ -9,6 +10,7 @@ const getQuestionsByCategory = (category) => {
         // case 'olahra' : return olahraga; break;
         // case 'movie' : return movie; break;
         case 'sport' : return sport; break;
+        case 'food' : return food; break;
         default : return umum; break;
     }
 } 

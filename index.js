@@ -8,7 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 
 function makeid(length) {
     var result = '';
-    var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     var charactersLength = characters.length;
     for (var i = 0; i < length; i++) {
         result += characters.charAt(Math.floor(Math.random() *
@@ -33,39 +33,29 @@ server.listen(8080, () => {
 
 var ROOM = [
     {
-        name: 'General',
-        code: "general",
+        name: 'Menyehatkan',
+        code: "sport",
         players: [],
         max: 10,
-        category: 'umum',
+        category: 'sport',
         logs: []
     },
     {
-        name: 'Funny',
-        code: "movie",
+        name: 'Makan Makan',
+        code: "food",
         players: [],
         max: 10,
-        category: 'film',
+        category: 'food',
         logs: []
-    },
-    {
-        name: 'History',
-        code: "history",
-        players: [],
-        max: 10,
-        category: 'sejarah',
-        logs: []
-
     }
 ]
 
 io.on('connection', (socket) => {
     console.log('someone connected');
     socket.on('setUsername', value => {
-        // socket['user'] = User(value);
-        socket['username'] = value
-        socket.emit('username', value);
-
+        socket['username'] = value.username
+        socket.avatar = value.avatar
+        socket.emit('initSelfData', value);
     })
 
     socket.on('getAllRoom', (keyword) => {
@@ -80,7 +70,11 @@ io.on('connection', (socket) => {
     socket.on('peringkat', () => {
         ROOM.map(e => {
             if (e.code === socket.code) {
-                return socket.emit('peringkat', e.players);
+                let temp = e.players;
+                temp = temp.sort(function(a,b){
+                    return parseInt(b.score) - parseInt(a.score)
+                })
+                return socket.emit('peringkat', temp);
             }
         })
     })
@@ -88,7 +82,7 @@ io.on('connection', (socket) => {
     socket.on('buatRoom', (data) => {
         console.log(data);
         let code = makeid(4)
-        let temp = { name: data.nama, code, players: [{ name: socket.username, score: 0, socket: JSON.stringify(socket.id), isRM: true }], max: data.jml, category: data.kategori, isPlayed: false }
+        let temp = { name: data.nama, code, players: [{ name: socket.username, score: 0, socket: JSON.stringify(socket.id), isRM: true, avatar: socket.avatar }], max: data.jml, category: data.kategori, isPlayed: false }
         temp.question = getQuestionsByCategory(data.kategori);
         ROOM.push(temp)
         socket.join(code)
@@ -110,31 +104,59 @@ io.on('connection', (socket) => {
     function theGame() {
         ROOM = ROOM.map(e => {
             if (e.code === socket.code) {
+                let isPlayed = true;
                 let round = 0;
+                let question = e?.question;
                 if (parseInt(e.round) > -1) {
                     round = e.round + 1;
+                    question = question.map((ques) => ques.id === e.currQuestion.id ? { ...ques, isPassed: true } : ques);
                 }
-                console.log(e);
+
+
                 let BASE_DURATION = 20
                 let duration = BASE_DURATION - (round * 1.5)
-                const currQuestion = getCurrentQuestion(e?.question);
+                const currQuestion = getCurrentQuestion(question);
                 io.to(e.code).emit('game-dimulai', { question: currQuestion, duration: duration, round: round });
                 io.to(e.code).emit('msg', {
                     type: 'notif',
-                    text: ": Ronde " + (round + 1 )+ " Dimulai! Persiapkan diri."
+                    text: ": Ronde " + (round + 1) + " Dimulai! Persiapkan diri."
                 })
 
+                let counter = 0;
+                let interval = null
                 setTimeout(() => {
-                    io.to(e.code).emit('msg', {
-                        type: 'notif',
-                        text: ": Ronde " + (round + 1 )+ " Berakhir!."
-                    })
-        
-                    io.to(e.code).emit('round-end')
-                    io.to(e.socketMaster).emit('next-round')         
-                }, (duration * 1000) + 8300)
+                    interval = setInterval(() => {
+                        counter += 0.1
+                        io.to(e.code).emit('countdown', counter)
+                        if (counter >= duration) {
+                            clearInterval(interval)
+                            io.to(e.code).emit('msg', {
+                                type: 'notif',
+                                text: ": Ronde " + (round + 1) + " Berakhir!."
+                            })
 
-                return { ...e, isPlayed: true, currQuestion, round: round }
+                            console.log('rondee' , round);
+
+                            if (round <= 3) {
+                                io.to(e.code).emit('round-end')
+                                io.to(e.socketMaster).emit('next-round')
+                            } else {
+                                io.to(e.code).emit('game-end')
+                                io.to(e.code).emit('msg', {
+                                    type: 'notif',
+                                    text: ": Permainan Berakhir!."
+                                })
+                                isPlayed = false; 
+                            }
+                        }
+                    }, 100)
+
+                    io.to(e.code).emit('round-start', counter)
+                }, 8000)
+
+
+
+                return { ...e, isPlayed: isPlayed, currQuestion, round: round, question }
             }
 
             return e
@@ -142,8 +164,9 @@ io.on('connection', (socket) => {
     }
 
     socket.on('mulai-game', () => {
+
         theGame()
-        
+
     })
     socket.on('msg', ({ text }) => {
         io.to(socket.code).emit('msg', {
@@ -161,7 +184,7 @@ io.on('connection', (socket) => {
                         type: 'notif',
                         text: ": " + socket.username + ' Memasuki Room'
                     }
-                    temp = { ...e, players: [...e.players, { name: socket.username, score: 0, socket: JSON.stringify(socket.id), isRM: e.players.length === 0 }] }
+                    temp = { ...e, players: [...e.players, { name: socket.username, score: 0, socket: JSON.stringify(socket.id), isRM: e.players.length === 0, avatar: socket.avatar }] }
 
                     io.to(code).emit('msg', logs);
 
@@ -179,7 +202,7 @@ io.on('connection', (socket) => {
 
                     io.to(code).emit('initRoom', temp)
                     socket.code = e.code;
-                    
+
                     socket.emit('success-join', e.code)
                     return temp
                 } else {
@@ -215,12 +238,31 @@ io.on('connection', (socket) => {
         })
     })
 
+
+    socket.on('keluar-room', ()=> {
+        ROOM = ROOM.map(e => {
+            if (e.code === socket.code) {
+                if (e.players.length === 1) {
+                    return { ...e, players: e.players.filter(e => e.name !== socket.username), isPlayed: false }
+                }
+                let logs = {
+                    type: 'notif',
+                    text: ": " + socket.username + ' Keluar dari Room'
+                }
+                io.to(socket.code).emit('msg', logs);
+                return { ...e, players: e.players.filter(e => e.name !== socket.username) }
+            } else {
+                return e
+            }
+        })
+    })
+
     socket.on('disconnect', () => {
         if (socket.code) {
             ROOM = ROOM.map(e => {
                 if (e.code === socket.code) {
                     if (e.players.length === 1) {
-                        return { ...e, players: e.players.filter(e => e.name !== socket.username) }
+                        return { ...e, players: e.players.filter(e => e.name !== socket.username), isPlayed: false }
                     }
                     let logs = {
                         type: 'notif',

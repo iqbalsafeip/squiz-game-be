@@ -7,7 +7,8 @@ let pertanyaan = [
             "Sumber minuman",
             "Alat untuk bahan bakar"
         ],
-        "key" : 2
+        "key" : 2,
+        "id" : 1
     },
     {
         "pertanyaan" : "Selain manusia, tumbuhan juga membutuhkan air antara lain untuk proses ...",
@@ -17,7 +18,8 @@ let pertanyaan = [
             "Pengguguran",
             "Pelapukan"
         ],
-        "key" : 1
+        "key" : 1,
+        "id" : 2
     },
     {
         "pertanyaan" : "Ikan-ikan di sungai akan mati  jika tidak ada air, hal ini mennandakan bahwa ada jenis hewan yang membutuhkan air sebagai ....",
@@ -28,6 +30,7 @@ let pertanyaan = [
             "Alat berkembangbiak"
         ],
         "key" : 2,
+        "id":  3
         
     }
 ]

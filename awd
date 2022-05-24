@@ -1,9 +1,0 @@
-base durasi - (ronde + 2)
-
-base durasi = 15
-
-
-base durasi    ronde   2
-15                0     2 =15
-15                1     2 = 12
-15                  2   2 = 11
